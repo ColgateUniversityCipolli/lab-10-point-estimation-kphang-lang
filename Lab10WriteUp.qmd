@@ -136,26 +136,117 @@ To help us think about the interpretation, something that was challenging before
 ## Part a
 Suppose a player has a 50\% chance of winning a specific leg, that is let $p=0.50$. Let's look at the probability they win ($x=6$) legs in the match. Compute this probability over a sequence from $\theta=0.5$ to $\theta=1.5$ and plot it using a line where the $x$-axis is $\theta$ and the $y$-axis is $P(X=6)$.
 
+**Solution**
+```{r}
+p = 0.50
+x=6
+n=11
+
+ggdat = tibble(theta = seq(0.5, 1.5, by = 0.01)) |>
+  mutate(prob = daltbinom(x = x, size = n, prob = p, theta = theta)
+  )
+```
+
+```{r}
+#| label: fig-prob6
+#| fig-cap: "Probability of Winning 6 Legs in a Match as Theta Changes"
+#| fig-width: 5
+#| fig-height: 3
+#| scale: "80%"
+#| fig-align: "center"
+#| size: scriptsize
+
+ggplot(ggdat, aes(x = theta, y = prob)) +
+  geom_line() +
+  labs(x = expression(theta),
+    y = "P(X = 6)"
+  ) +
+  theme_bw()
+```
+
 ## Part b
 Now, plot Altham's Multiplicative Binomial Distribution under the same parameters with $\theta=0.50$, $\theta=1$, and $\theta=1.5$. Use `ncol=1` in `facet_wrap()` to plot the PMFs in a single column for comparing.
+
+**Solution**
+```{r}
+p = 0.50
+n=11
+
+ggdat = tibble(
+  x = rep(0:n, times = 3),
+  theta = rep(c(0.5, 1.0, 1.5), each = n + 1)) |>
+  mutate(
+    PMF = daltbinom(x = x, size = n, prob = p, theta = theta)
+  )
+```
+
+```{r}
+#| label: fig-althambinomialpmf
+#| fig-cap: "Altham's Multiplicative Binomial PMF"
+#| fig-width: 5
+#| fig-height: 4
+#| scale: "80%"
+#| fig-align: "center"
+#| size: scriptsize
+
+PMF.plot = ggplot(ggdat, 
+  aes(x = x, ymin = 0, ymax = PMF)) +
+  geom_linerange() +
+  geom_hline(yintercept = 0) +
+  facet_wrap(~ theta, ncol = 1) +
+  scale_x_continuous("x", breaks = 0:n) +
+  ylab("Probability") +
+  theme_bw() 
+
+PMF.plot
+```
 
 ## Part c
 What is your best assessment of what $\theta$ is doing in this setting. Consider when a 6-0 blowout is most likely, and when a 5-6 nail-biter is most likely. Note here we should treat the match as a fixed $n=11$ as we did for $n=3$ in Lab 8.\
 **Note:** In lab 8, we saw that small $\theta$ meant wins came in bunches (clumped together), so there were more 2-0 wins in a best of three series.
+
+**Solution**
+Theta, again, makes win distributions more likely to cluster around extremes (0 or 11) when it is smaller (0.5, in part b), and makes win distributions more likely in the center (5-6) when it is larger. My assessment is that when theta is larger, it is smaller it is putting more emphasis on game-to-game results and skill, meaning that if a player has won several games in a row already they are more likely to win the next game (the opposite is also true). When theta is larger, games are more independent and the results are less reliant on each other.
 
 # Question 2
 
 ## Part a
 Altham's Multiplicative Binomial Distribution does not typically simplify to the clean $E(X)=np$ seen in the Binomial distribution, unless $\theta = 1$. Write out the expression that would need to be solved to find $E(X^k)$, and then write a function that computes it given the proposed parameter values $p$ (`prob`) and $\theta$ (`theta`).
 
+**Solution**
+```{r}
+E.altbinom.k = function(k, size, prob, theta){
+  x.vals = 0:size
+  sum((x.vals^k) * daltbinom(x.vals, size, prob, theta))
+}
+```
+
 ## Part b
 Describe how you can use your answer to part a to find Method of Moments estimates for the parameters $p$ and $\theta$ for Altham's Multiplicative Binomial Distribution based on data.
+
+**Solution**
+You can create a function with (par, data, size) and define the parameters p and theta as parameters 1 and 2. then you set m1 equal to the mean of the given data, m2 equal to the mean of the given data^2, and so on. Then, for E1 and E2, you set these equal to E.altbinom.k (the function from part a) with k = 1,2... Using what you wrote for m1, m2, ... and E1, E2, ... do c(E1-m1, E2-m2) which should result in (0, 0). Then use nleqslv, putting in fn, x, data, size to output the Method of Moments estimator based on the specific data. Method of Moments is an approximation, that gives back the maximum likelihood of observing a certain outcome.
 
 ## Part c
 Write a function that computes the log-likelihood for Altham's Multiplicative Binomial Distribution, given data (`x`) and proposed parameter values $p$ (`prob`) and $\theta$ (`theta`).
 
+**Solution**
+```{r}
+ll.altham = function(par, data, size, mle=FALSE){
+  p = ifelse(mle, 1/(1 + exp(-par[1])), par[1])   
+  theta = ifelse(mle, exp(par[2]), par[2]) # exp gives the exponential to ensure p and theta are positive     
+  
+  ll = sum(log(daltbinom(x = data, size = size, prob = p, theta = theta))) 
+  
+  ifelse(mle, -ll, ll)  
+}
+```
+
 ## Part d
 Describe how you can use your answer to part c to find Maximum Likelihood estimates for the parameters $p$ and $\theta$ for Altham's Multiplicative Binomial Distribution based on data.
+
+**Solution**
+We can use the log-likelihood function from part c to find Maximum Likelihood Estimates for p and theta by finding the parameter values that maximize the likelihood of the observed data. This can be done later using optim() to search for the values of p and theta that make the observed outcomes most probable. To ensure valid parameters, we can transform p to stay between 0 and 1 and theta to stay positive during optimization (in the ifelse statment in part c), then transform back to report the MLEs. A good starting point for the optimization is the Method of Moments estimates from Part b.
 
 # Lab 10
 Peter "Snakebite" Wright is a two-time Professional Darts Corporation World Champion (2020, 2022) and a former World No. 1. He is one of the sport's most decorated players, winning nearly 50 PDC titles including the World Matchplay, UK Open, and multiple European Championships. 
@@ -187,9 +278,21 @@ In `pdc2024.csv`, I have provided the data for the 2024 Premier League season. T
   
   Summarize the data. What do the data tell us about the breakdown of the results?
 
+**Solution**
+```{r}
+dat.pdc = read.csv("pdc2024.csv")
+
+library(tidyverse)
+  dat.pdc.cleaned = dat.pdc |>
+    filter(!is.na(Score)) |>
+    filter(Night %in% (1:16)) |>
+    separate(Score, into = c(WinnerLegs, LoserLegs))
+```
+
 ## Altham's Multiplicative Binomial Distribution
 For each player in the 2024 season, use the number of legs won in each match to compute maximium likelihood estimates for $p$ and $\theta$. \
 **Note**: The "for each" here can be done more efficiently with a function or a loop!
+
 
 * Create a vector containing the number of legs won by the player. Note sometimes you will need to pull from winner's legs and sometimes from the loser's legs.
 * Find the MLE for the player using this data. Ensure to report $p$ and $\theta$ for each player in a nicely formatted table.\
