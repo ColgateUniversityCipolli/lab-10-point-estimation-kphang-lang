@@ -282,23 +282,66 @@ In `pdc2024.csv`, I have provided the data for the 2024 Premier League season. T
 ```{r}
 dat.pdc = read.csv("pdc2024.csv")
 
-library(tidyverse)
+library(dplyr)
   dat.pdc.cleaned = dat.pdc |>
     filter(!is.na(Score)) |>
-    filter(Night %in% (1:16)) |>
-    separate(Score, into = c(WinnerLegs, LoserLegs))
+    filter(!Score %in% c("bye", "walkover")) |>
+    filter(Night %in% 1:16) |>
+    separate(Score, into = c("WinnerLegs", "LoserLegs")) 
 ```
 
 ## Altham's Multiplicative Binomial Distribution
 For each player in the 2024 season, use the number of legs won in each match to compute maximium likelihood estimates for $p$ and $\theta$. \
 **Note**: The "for each" here can be done more efficiently with a function or a loop!
 
+**Solution**
+```{r}
+dat.pdc.cleaned = dat.pdc.cleaned |>
+  pivot_longer(cols = c(Winner, Loser),
+               names_to = "Result",
+               values_to = "Player") |>
+    mutate(W = ifelse(Result == "Winner", WinnerLegs, LoserLegs),
+            L = ifelse(Result == "Winner", LoserLegs, WinnerLegs))
+  
+ll.alt = function(par, w, l) {
+  p = par[1]
+  theta = par[2]
+  
+  if (p <= 0 || p >= 1 || theta <= 0) return(Inf) #manipulate the range of parameters
+  
+  -sum(log(daltbbinom(w, w + l, p, theta)))
+}
+
+fit_altham_player = function(df) {
+  w = df$WinnerLegs
+  l = df$LoserLegs
+  
+  fit = optim(
+    par = c(0.5, 1),   # starting values
+    fn = ll.alt,
+    w = w,
+    l = l
+  )
+  
+  tibble(p.hat = fit$par[1],
+        theta.hat = fit$par[2])
+}
+results = dat.pdc.cleaned |>
+  group_by(Player) |>
+  summarize(
+    p.hat = fit_altham_player(cur_data())$p.hat,
+    theta.hat = fit_altham_player(cur_data())$theta.hat
+  )
+
+results
+```
 
 * Create a vector containing the number of legs won by the player. Note sometimes you will need to pull from winner's legs and sometimes from the loser's legs.
 * Find the MLE for the player using this data. Ensure to report $p$ and $\theta$ for each player in a nicely formatted table.\
 **Note:** In Lecture on Monday, we used transformations to restrict how `optim()` searches the parameter space. For example, here, you might consider
 `p <- 1/(1+exp(-par[1]))` and `theta <- exp(par[2])`.
 * Make comments about the MLEs in the context of the standings.
+
 
 ## Altham's Multiplicative Beta Binomial Distribution
 
