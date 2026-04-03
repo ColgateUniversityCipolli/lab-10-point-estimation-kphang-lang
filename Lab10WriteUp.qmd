@@ -283,58 +283,71 @@ In `pdc2024.csv`, I have provided the data for the 2024 Premier League season. T
 dat.pdc = read.csv("pdc2024.csv")
 
 library(dplyr)
+library(tidyr)
   dat.pdc.cleaned = dat.pdc |>
     filter(!is.na(Score)) |>
     filter(!Score %in% c("bye", "walkover")) |>
     filter(Night %in% 1:16) |>
-    separate(Score, into = c("WinnerLegs", "LoserLegs")) 
+    separate(Score, into = c("WinnerLegs", "LoserLegs")) |>
+    mutate(WinnerLegs = as.numeric(WinnerLegs),
+            LoserLegs = as.numeric(LoserLegs)) |>
+    filter(!is.na(WinnerLegs), !is.na(LoserLegs))
 ```
+
+```{r}
+#| label: fig-matchoutcomes
+#| fig-cap: "Distribution of Match Outcomes by Losing Legs"
+#| fig-align: "center"
+#| echo: false
+
+library(ggplot2)
+
+ggplot(dat.pdc.cleaned, aes(x = factor(LoserLegs))) +
+  geom_bar() +
+   theme_bw() +
+  labs(
+    x = "Number of Legs Won by Losing Player",
+    y = "Count"
+  ) 
+```
+```{r}
+#| label: tbl-summaryofpremierleaguescores
+#| tbl-cap: "Distribution of Match Outcomes"
+#| tbl-align: "center"
+#| echo: false
+
+dat.pdc.cleaned |>
+  group_by(LoserLegs) |>
+  summarize(
+    count = n(),
+    prop = n() / nrow(dat.pdc.cleaned)
+  ) |>
+  knitr::kable(digits = 3)
+```
+
+```{r}
+#| label: tbl-summary
+#| tbl-cap: "Summary of Premier League Scores"
+#| tbl-align: "center"
+#| echo: false
+
+dat.pdc.cleaned |>
+  summarize(
+    mean_loser   = mean(LoserLegs, na.rm = TRUE),
+    sd_loser     = sd(LoserLegs, na.rm = TRUE),
+    median_loser = median(LoserLegs, na.rm = TRUE),
+    iqr_loser    = IQR(LoserLegs, na.rm = TRUE),
+    skew_loser    = e1071::skewness(LoserLegs, na.rm = TRUE),
+    kurt_loser    = e1071::kurtosis(LoserLegs, na.rm = TRUE)
+  ) |>
+  knitr::kable(digits = 3)  
+```
+
+First I cleaned the data by removing matches without valid scores, taking out byes and walkovers, and restricting the dataset to Nights 1 through 16. The score variable was then separated into WinnerLegs and LoserLegs, which were converted to numeric values. Table 2 summarizes the distribution of match outcomes by the number of legs won by the losing player. The table shows both the frequency and proportion of matches for each possible value of LoserLegs. Table 3 then shows the mean, sd, median, iqr of the scores. The results indicate that matches are generally competitive, with a higher concentration of outcomes where the losing player wins several legs (4 or 5). In contrast, matches where the losing player wins very few legs (0 or 1) occur less frequently, meaning complete blowouts are relatively uncommon. Overall, the mean number of losing legs is approximately 3.559, with a standard deviation of 1.196. The median is 4, and the interquartile range is 2, further indicating that most matches are fairly close.
 
 ## Altham's Multiplicative Binomial Distribution
 For each player in the 2024 season, use the number of legs won in each match to compute maximium likelihood estimates for $p$ and $\theta$. \
 **Note**: The "for each" here can be done more efficiently with a function or a loop!
-
-**Solution**
-```{r}
-dat.pdc.cleaned = dat.pdc.cleaned |>
-  pivot_longer(cols = c(Winner, Loser),
-               names_to = "Result",
-               values_to = "Player") |>
-    mutate(W = ifelse(Result == "Winner", WinnerLegs, LoserLegs),
-            L = ifelse(Result == "Winner", LoserLegs, WinnerLegs))
-  
-ll.alt = function(par, w, l) {
-  p = par[1]
-  theta = par[2]
-  
-  if (p <= 0 || p >= 1 || theta <= 0) return(Inf) #manipulate the range of parameters
-  
-  -sum(log(daltbbinom(w, w + l, p, theta)))
-}
-
-fit_altham_player = function(df) {
-  w = df$WinnerLegs
-  l = df$LoserLegs
-  
-  fit = optim(
-    par = c(0.5, 1),   # starting values
-    fn = ll.alt,
-    w = w,
-    l = l
-  )
-  
-  tibble(p.hat = fit$par[1],
-        theta.hat = fit$par[2])
-}
-results = dat.pdc.cleaned |>
-  group_by(Player) |>
-  summarize(
-    p.hat = fit_altham_player(cur_data())$p.hat,
-    theta.hat = fit_altham_player(cur_data())$theta.hat
-  )
-
-results
-```
 
 * Create a vector containing the number of legs won by the player. Note sometimes you will need to pull from winner's legs and sometimes from the loser's legs.
 * Find the MLE for the player using this data. Ensure to report $p$ and $\theta$ for each player in a nicely formatted table.\
