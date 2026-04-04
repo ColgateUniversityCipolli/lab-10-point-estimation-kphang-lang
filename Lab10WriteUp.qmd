@@ -410,7 +410,7 @@ player.results = player.data |>
 knitr::kable(player.results, digits = 3)
 ```
 
-The estimated values of p and theta vary across players, reflecting differences in both overall performance and match dynamics. The parameter p represents the probability of winning an individual leg, so players with higher values of p.hat tend to win a greater proportion of legs and are generally stronger performers in the standings. The parameter theta captures dependence between legs. Values of theta > 1 indicate clustering of outcomes, meaning that players are more likely to win or lose multiple consecutive legs. In contrast, values of theta < 1 suggest alternation between players, leading to more tightly contested matches. Comparing these results to the empirical distribution of match outcomes, the presence of many close matches (e.g., 6–5 results) is consistent with models that allow for dependence between legs. Players with higher theta values tend to exhibit streakier performance, while those with theta closer to 1 behave more like the independent Binomial model. Overall, these results provide evidence that the independence assumption of the standard Binomial model may be too restrictive, and that Altham’s model offers a more flexible framework for capturing the dynamics of match play.
+The estimated values of p and theta vary across players, showing differences in both performance and match dynamics. p represents the probability of winning an individual leg, so players with higher values of p.hat tend to win a greater proportion of legs. The parameter theta adds dependence between legs. Values of theta > 1 make outcomes cluster more, meaning that players are more likely to win or lose multiple consecutive legs. In contrast, values of theta < 1 suggest alternation between players, leading to more balanced matches. Comparing these results to the empirical distribution of match outcomes, the presence of many close matches (e.g., 6–5) is consistent with models that allow for dependence between legs. Players with higher theta values tend to show less clustered performance, while those with theta closer to 1 behave more like the independent Binomial model. Overall, these results provide evidence that Altham’s model offers a more flexible and accurate model for showing the dynamics of match play.
 
 ## Altham's Multiplicative Beta Binomial Distribution
 
@@ -429,6 +429,104 @@ For each player in the 2024 season, use the number of legs won in each match to 
 \end{align*}
 * Make comments about the MLEs in the context of the standings.\
 **Note**: The players alternate who throws first in a leg has the mathematical "head start" to reach a finish before their opponent can take another turn. Players alternate who throws first with each leg.
+
+**Solution**
+```{r}
+ll.altham.bb = function(par, x, n = 11) {
+
+  alpha = exp(par[1])
+  beta  = exp(par[2])
+  theta = exp(par[3]) #transform parameters
+  
+  k.vals = 0:6
+  probs = sapply(k.vals, function(k) { #probabilities for each k
+    daltbbinom(k, size = n, alpha = alpha, beta = beta, theta = theta)
+  })
+  
+  ll = sum(log(probs[x + 1]))  # match probabilities to observed data
+  
+  return(-ll) # negative for minimization
+}
+```
+
+```{r}
+fit.altham.bb.player = function(df) {
+  
+  x = df$LegsWon
+  
+  fit = optim(
+    par = c(0, 0, 0),
+    fn = ll.altham.bb,
+    x = x
+  )
+  
+  alpha = exp(fit$par[1])
+  beta  = exp(fit$par[2])
+  theta = exp(fit$par[3])
+  
+  tibble(
+    alpha.hat = alpha,
+    beta.hat  = beta,
+    theta.hat = theta,
+    mean = alpha / (alpha + beta),
+    sd = sqrt(alpha * beta / ((alpha + beta)^2 * (alpha + beta + 1)))
+  )
+}
+```
+
+```{r}
+#| label: tbl-althambb
+#| tbl-cap: "MLEs for Altham Beta-Binomial Model by Player"
+#| echo: false
+#| results: asis
+
+player.results.bb = player.data |>
+  group_by(Player) |>
+  summarize(
+    alpha.hat = fit.altham.bb.player(cur_data())$alpha.hat,
+    beta.hat  = fit.altham.bb.player(cur_data())$beta.hat,
+    theta.hat = fit.altham.bb.player(cur_data())$theta.hat,
+    mean      = fit.altham.bb.player(cur_data())$mean,
+    sd        = fit.altham.bb.player(cur_data())$sd
+  )
+
+  knitr::kable(player.results.bb, digits = 3)
+```
+
+```{r}
+#| label: fig-betabyplayer
+#| fig-cap: "Estimated Beta Distributions by Player"
+#| fig-width: 5
+#| fig-height: 3
+#| scale: "80%"
+#| fig-align: "center"
+#| size: scriptsize
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+x.vals = seq(0, 1, length.out = 100)
+
+# Expand the data frame so each player has a row for each x
+player.density <- player.results.bb |>
+  select(Player, alpha.hat, beta.hat) |>
+  crossing(x.val = x.vals) |>
+  rowwise() |>
+  mutate(density = dbeta(x.val, alpha.hat, beta.hat)) |>
+  ungroup()
+
+ggplot(player.density, aes(x = x.val, y = density)) +
+  geom_line(color = "darkorchid") +    
+  facet_wrap(~ Player) +  
+  labs(
+    x = "Probability of Winning a Leg",
+    y = "Density",
+  ) +
+  theme_bw() 
+```
+
+The estimates of alpha, beta, and theta account for variation in player performance by allowing the probability of winning a leg to vary across matches. The mean of the Beta distribution represents the average probability of winning a leg, while the standard deviation captures variability in performance. Players with higher mean values tend to perform better overall. However, the nonzero variance indicates that performance is not constant, and may fluctuate across matches/opponents. This highlights a significant limitation of the standard Binomial model, which assumes a fixed probability of success across matches. The parameter theta continues to capture dependence between legs. As in the multiplicative binomial model, values of theta > 1 indicate clustering of outcomes, while values near 1 suggest approximate independence (same as previous observation). Compared to the simpler models, the multiplicative Beta-Binomial provides the best fit for the observed data by accounting for both differences in player ability and dependence between legs. This is particularly important for something like darts matches, where players alternate who throws first, creating potential advantages across legs and matches.
 
 ## Executive Summary
 Summarize the work you've done here to provide a brief (200-300 word) data-driven summary of the 2024 Premier League season using your work in Lab 10. Your summary should be professional, clear, and all claims should be corroborated with statistical support.
