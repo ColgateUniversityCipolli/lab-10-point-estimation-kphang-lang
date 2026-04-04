@@ -355,6 +355,62 @@ For each player in the 2024 season, use the number of legs won in each match to 
 `p <- 1/(1+exp(-par[1]))` and `theta <- exp(par[2])`.
 * Make comments about the MLEs in the context of the standings.
 
+**Solution**
+```{r}
+library(dplyr)
+winners = dat.pdc.cleaned |> 
+  select(Player = Winner, LegsWon = WinnerLegs) #Winner rows
+
+losers = dat.pdc.cleaned |>
+  select(Player = Loser, LegsWon = LoserLegs) #Loser rows
+
+player.data = bind_rows(winners, losers) #combine them
+
+ll.altham = function(par, x, n = 11) {
+  p = 1 / (1 + exp(-par[1]))   
+  theta = exp(par[2])          # transform parameters
+
+  ll = sum(log(daltbinom(x, size = n, prob = p, theta = theta)))
+  
+  return(-ll)  # negative for minimization
+}
+```
+
+```{r}
+fit.altham.player = function(df) {
+  x = df$LegsWon
+  
+  fit = optim(
+    par = c(0, 0),
+    fn = ll.altham,
+    x = x
+  )
+  
+  tibble(
+    p.hat = 1 / (1 + exp(-fit$par[1])),
+    theta.hat = exp(fit$par[2])
+  )
+}
+```
+
+```{r}
+#| label: tbl-altham-mle
+#| tbl-cap: "Maximum Likelihood Estimates for Altham’s Model by Player"
+#| tbl-align: "center"
+#| echo: false
+#| results: asis
+
+player.results = player.data |> 
+  group_by(Player) |>
+  summarize(
+    p.hat = fit.altham.player(cur_data())$p.hat,
+    theta.hat = fit.altham.player(cur_data())$theta.hat
+  )
+
+knitr::kable(player.results, digits = 3)
+```
+
+The estimated values of p and theta vary across players, reflecting differences in both overall performance and match dynamics. The parameter p represents the probability of winning an individual leg, so players with higher values of p.hat tend to win a greater proportion of legs and are generally stronger performers in the standings. The parameter theta captures dependence between legs. Values of theta > 1 indicate clustering of outcomes, meaning that players are more likely to win or lose multiple consecutive legs. In contrast, values of theta < 1 suggest alternation between players, leading to more tightly contested matches. Comparing these results to the empirical distribution of match outcomes, the presence of many close matches (e.g., 6–5 results) is consistent with models that allow for dependence between legs. Players with higher theta values tend to exhibit streakier performance, while those with theta closer to 1 behave more like the independent Binomial model. Overall, these results provide evidence that the independence assumption of the standard Binomial model may be too restrictive, and that Altham’s model offers a more flexible framework for capturing the dynamics of match play.
 
 ## Altham's Multiplicative Beta Binomial Distribution
 
