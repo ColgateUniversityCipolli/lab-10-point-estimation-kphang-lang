@@ -140,7 +140,7 @@ Suppose a player has a 50\% chance of winning a specific leg, that is let $p=0.5
 ```{r}
 p = 0.50
 x=6
-n=11
+n=11 #define parameters
 
 ggdat = tibble(theta = seq(0.5, 1.5, by = 0.01)) |>
   mutate(prob = daltbinom(x = x, size = n, prob = p, theta = theta)
@@ -170,13 +170,13 @@ Now, plot Altham's Multiplicative Binomial Distribution under the same parameter
 **Solution**
 ```{r}
 p = 0.50
-n=11
+n=11 #define parameters
 
 ggdat = tibble(
   x = rep(0:n, times = 3),
   theta = rep(c(0.5, 1.0, 1.5), each = n + 1)) |>
   mutate(
-    PMF = daltbinom(x = x, size = n, prob = p, theta = theta)
+    PMF = daltbinom(x = x, size = n, prob = p, theta = theta) #define PMF
   )
 ```
 
@@ -189,11 +189,11 @@ ggdat = tibble(
 #| fig-align: "center"
 #| size: scriptsize
 
-PMF.plot = ggplot(ggdat, 
+PMF.plot = ggplot(ggdat, #plot PMF
   aes(x = x, ymin = 0, ymax = PMF)) +
   geom_linerange() +
   geom_hline(yintercept = 0) +
-  facet_wrap(~ theta, ncol = 1) +
+  facet_wrap(~ theta, ncol = 1) + #facet wrap theta
   scale_x_continuous("x", breaks = 0:n) +
   ylab("Probability") +
   theme_bw() 
@@ -206,7 +206,7 @@ What is your best assessment of what $\theta$ is doing in this setting. Consider
 **Note:** In lab 8, we saw that small $\theta$ meant wins came in bunches (clumped together), so there were more 2-0 wins in a best of three series.
 
 **Solution**
-Theta, again, makes win distributions more likely to cluster around extremes (0 or 11) when it is smaller (0.5, in part b), and makes win distributions more likely in the center (5-6) when it is larger. My assessment is that when theta is larger, it is smaller it is putting more emphasis on game-to-game results and skill, meaning that if a player has won several games in a row already they are more likely to win the next game (the opposite is also true). When theta is larger, games are more independent and the results are less reliant on each other.
+Theta, again, makes win distributions more likely to cluster around extremes (0 or 11) when it is smaller (0.5), and makes win distributions more likely in the center (5-6) when it is larger. My assessment is that when theta is smaller, it is putting more emphasis on game-to-game results and skill, meaning that if a player has won several games in a row already they are more likely to win the next game. When theta is larger, games are more independent and the results are less reliant on each other.
 
 # Question 2
 
@@ -215,8 +215,8 @@ Altham's Multiplicative Binomial Distribution does not typically simplify to the
 
 **Solution**
 ```{r}
-E.altbinom.k = function(k, size, prob, theta){
-  x.vals = 0:size
+E.altbinom.k = function(k, size, prob, theta){ #create function
+  x.vals = 0:size #vector of x values
   sum((x.vals^k) * daltbinom(x.vals, size, prob, theta))
 }
 ```
@@ -236,7 +236,7 @@ ll.altham = function(par, data, size, mle=FALSE){
   p = ifelse(mle, 1/(1 + exp(-par[1])), par[1])   
   theta = ifelse(mle, exp(par[2]), par[2]) # exp gives the exponential to ensure p and theta are positive     
   
-  ll = sum(log(daltbinom(x = data, size = size, prob = p, theta = theta))) 
+  ll = sum(log(daltbinom(x = data, size = size, prob = p, theta = theta))) #compute log likelihood
   
   ifelse(mle, -ll, ll)  
 }
@@ -246,7 +246,7 @@ ll.altham = function(par, data, size, mle=FALSE){
 Describe how you can use your answer to part c to find Maximum Likelihood estimates for the parameters $p$ and $\theta$ for Altham's Multiplicative Binomial Distribution based on data.
 
 **Solution**
-We can use the log-likelihood function from part c to find Maximum Likelihood Estimates for p and theta by finding the parameter values that maximize the likelihood of the observed data. This can be done later using optim() to search for the values of p and theta that make the observed outcomes most probable. To ensure valid parameters, we can transform p to stay between 0 and 1 and theta to stay positive during optimization (in the ifelse statment in part c), then transform back to report the MLEs. A good starting point for the optimization is the Method of Moments estimates from Part b.
+We can use the log-likelihood function from part c to find Maximum Likelihood Estimates for p and theta by finding the parameter values that maximize the likelihood of the observed data. This can be done later using optim() to search for the values of p and theta that make the observed outcomes most probable. To ensure valid parameters, we can transform p to stay between 0 and 1 and theta to stay positive during optimization (in the ifelse statment in part c), then transform back to report the MLEs. A good starting point for optimization is the Method of Moments estimate from Part b.
 
 # Lab 10
 Peter "Snakebite" Wright is a two-time Professional Darts Corporation World Champion (2020, 2022) and a former World No. 1. He is one of the sport's most decorated players, winning nearly 50 PDC titles including the World Matchplay, UK Open, and multiple European Championships. 
@@ -289,7 +289,7 @@ library(tidyr)
     filter(!Score %in% c("bye", "walkover")) |>
     filter(Night %in% 1:16) |>
     separate(Score, into = c("WinnerLegs", "LoserLegs")) |>
-    mutate(WinnerLegs = as.numeric(WinnerLegs),
+    mutate(WinnerLegs = as.numeric(WinnerLegs), #make numeric
             LoserLegs = as.numeric(LoserLegs)) |>
     filter(!is.na(WinnerLegs), !is.na(LoserLegs))
 ```
@@ -359,12 +359,12 @@ For each player in the 2024 season, use the number of legs won in each match to 
 ```{r}
 library(dplyr)
 winners = dat.pdc.cleaned |> 
-  select(Player = Winner, LegsWon = WinnerLegs) #Winner rows
+  select(Player = Winner, LegsWon = WinnerLegs) 
 
 losers = dat.pdc.cleaned |>
-  select(Player = Loser, LegsWon = LoserLegs) #Loser rows
+  select(Player = Loser, LegsWon = LoserLegs) 
 
-player.data = bind_rows(winners, losers) #combine them
+player.data = bind_rows(winners, losers) #combine winner and loser rows
 
 ll.altham = function(par, x, n = 11) {
   p = 1 / (1 + exp(-par[1]))   
@@ -380,6 +380,7 @@ ll.altham = function(par, x, n = 11) {
 fit.altham.player = function(df) {
   x = df$LegsWon
   
+  #find MLE
   fit = optim(
     par = c(0, 0),
     fn = ll.altham,
@@ -410,7 +411,7 @@ player.results = player.data |>
 knitr::kable(player.results, digits = 3)
 ```
 
-The estimated values of p and theta vary across players, showing differences in both performance and match dynamics. p represents the probability of winning an individual leg, so players with higher values of p.hat tend to win a greater proportion of legs. The parameter theta adds dependence between legs. Values of theta > 1 make outcomes cluster more, meaning that players are more likely to win or lose multiple consecutive legs. In contrast, values of theta < 1 suggest alternation between players, leading to more balanced matches. Comparing these results to the empirical distribution of match outcomes, the presence of many close matches (e.g., 6–5) is consistent with models that allow for dependence between legs. Players with higher theta values tend to show less clustered performance, while those with theta closer to 1 behave more like the independent Binomial model. Overall, these results provide evidence that Altham’s model offers a more flexible and accurate model for showing the dynamics of match play.
+The estimated values of p and theta vary across players, showing differences in both performance and match dynamics. p represents the probability of winning an individual leg, so players with higher values of p.hat tend to win a greater proportion of legs. The parameter theta adds dependence between legs. Values of theta < 1 make outcomes cluster more, leading to streaks and more extreme match outcomes. In contrast, theta > 1 produces more alternation between players, resulting in more balanced matches. Comparing these results to the empirical distribution of match outcomes, the presence of many close matches (e.g., 6–5) is consistent with models that allow for dependence between legs. Players with higher theta values tend to show less clustered performance, while those with theta closer to 1 behave more like the independent Binomial model. Overall, these results provide evidence that Altham’s model offers a more flexible and accurate model for showing the dynamics of match play.
 
 ## Altham's Multiplicative Beta Binomial Distribution
 
@@ -451,9 +452,9 @@ ll.altham.bb = function(par, x, n = 11) {
 
 ```{r}
 fit.altham.bb.player = function(df) {
-  
   x = df$LegsWon
   
+  #Compute MLE
   fit = optim(
     par = c(0, 0, 0),
     fn = ll.altham.bb,
@@ -462,7 +463,7 @@ fit.altham.bb.player = function(df) {
   
   alpha = exp(fit$par[1])
   beta  = exp(fit$par[2])
-  theta = exp(fit$par[3])
+  theta = exp(fit$par[3]) 
   
   tibble(
     alpha.hat = alpha,
@@ -526,7 +527,16 @@ ggplot(player.density, aes(x = x.val, y = density)) +
   theme_bw() 
 ```
 
-The estimates of alpha, beta, and theta account for variation in player performance by allowing the probability of winning a leg to vary across matches. The mean of the Beta distribution represents the average probability of winning a leg, while the standard deviation captures variability in performance. Players with higher mean values tend to perform better overall. However, the nonzero variance indicates that performance is not constant, and may fluctuate across matches/opponents. This highlights a significant limitation of the standard Binomial model, which assumes a fixed probability of success across matches. The parameter theta continues to capture dependence between legs. As in the multiplicative binomial model, values of theta > 1 indicate clustering of outcomes, while values near 1 suggest approximate independence (same as previous observation). Compared to the simpler models, the multiplicative Beta-Binomial provides the best fit for the observed data by accounting for both differences in player ability and dependence between legs. This is particularly important for something like darts matches, where players alternate who throws first, creating potential advantages across legs and matches.
+The estimates of alpha, beta, and theta account for variation in player performance by allowing the probability of winning a leg to vary across matches. The mean of the Beta distribution represents the average probability of winning a leg, while the standard deviation captures variability in performance. Players with higher mean values tend to perform better overall. However, the nonzero variance indicates that performance is not constant, and may fluctuate across matches/opponents. This highlights a significant limitation of the standard Binomial model, which assumes a fixed probability of success across matches. The parameter theta continues to capture dependence between legs. As in the multiplicative binomial model, values of theta < 1 indicate clustering of outcomes, while values near 1 suggest approximate independence (same as previous observation). Compared to the simpler models, the multiplicative Beta-Binomial provides the best fit for the observed data by accounting for both differences in player ability and dependence between legs. This is particularly important for something like darts matches, where players alternate who throws first, creating potential advantages across legs and matches.
 
 ## Executive Summary
 Summarize the work you've done here to provide a brief (200-300 word) data-driven summary of the 2024 Premier League season using your work in Lab 10. Your summary should be professional, clear, and all claims should be corroborated with statistical support.
+
+**Solution**
+The 2024 Premier League Darts season exhibits a strong overall level of competitiveness, with most matches decided by relatively small margins. After cleaning the dataset to include only standard-format matches (Nights 1–16), the distribution of outcomes shows that losing players most frequently won 4 or 5 legs, while extreme outcomes such as 6–0 or 6–1 were rare. The mean number of losing legs was approximately 3.56 with moderate variability (SD around 1.20), indicating that matches were typically competitive.
+
+To more deeply understand player performance and match dynamics, Altham’s multiplicative Binomial model was used to estimate each player’s probability of winning a leg (p) and the dependence parameter theta. Higher estimated values of p aligned closely with stronger players standings, confirming that leg-level success translates directly to overall match performance. The theta parameter created additional dependence between legs: values less than 1 indicated clustering (streaks of consecutive legs), while values greater than 1 suggested alternating outcomes. This highlights that match play is not purely independent from leg to leg.
+
+Extending the model further to the multiplicative Beta-Binomial distribution allowed the probability of winning a leg to vary across matches. This added flexibility makes it possible to capture both differences in player ability and variability in performance across legs. Players with higher estimated means in the Beta distribution performed better overall, while nonzero variance indicated fluctuations in form across matches.
+
+Overall, the analysis shows that the Beta-Binomial model provides the most realistic representation of match dynamics by incorporating both leg-to-leg dependence and variability in player performance, offering the most accurate statistical description of the 2024 season.
